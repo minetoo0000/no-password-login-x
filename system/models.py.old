@@ -1,0 +1,68 @@
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
+from django.db import models
+from . import func;
+
+# Create your models here.
+class Account( models.Model ):
+	DP_account_id = models.CharField(max_length=64, null=False, primary_key=True);
+	account_password = models.CharField(max_length=128, default=func.deviceID128, null=False, blank=True);
+	# user = models.ForeignKey(User, on_delete=models.CASCADE, blank=True);
+
+
+class DeviceManager( BaseUserManager ):
+	def create_user( self, device_id, permission_level, password, account, **fields ):
+		if not device_id:
+			raise ValueError('Users must have a device_id')
+
+		user = self.model(
+			device_id=device_id, permission_level=permission_level,
+			login_token=password, account=Account.objects.get(DP_account_id=account),
+			**fields
+		)
+
+		user.set_password(password)
+		user.save(using=self._db)
+		return user
+
+	def create_superuser(self, device_id, permission_level, password, account, **fields):
+		fields.setdefault("is_staff", True);
+		fields.setdefault("is_superuser", True);
+		fields.setdefault("is_active", True);
+		if fields.get("is_staff") is not True:
+			raise ValueError("Superuser must have is_staff=True.")
+		if fields.get("is_superuser") is not True:
+			raise ValueError("Superuser must have is_superuser=True.")
+		
+		user = self.create_user(device_id, permission_level, password, account, **fields);
+		user.save(using=self._db)
+		return user
+
+class Device( AbstractBaseUser ):
+	device_id = models.CharField(max_length=128, unique=True, default=func.deviceID128)
+	login_token = models.CharField(max_length=128, default=func.deviceID128)
+	permission_level = models.IntegerField(null=False)
+	account = models.ForeignKey(Account, null=False, on_delete=models.CASCADE)
+
+	is_staff = models.BooleanField(default=False);
+	is_superuser = models.BooleanField(default=False);
+	is_active = models.BooleanField(default=True);
+
+
+	objects = DeviceManager()
+
+	USERNAME_FIELD = 'device_id';
+	REQUIRED_FIELDS = [ "permission_level", "account" ];
+
+	def __str__(self):
+		return self.device_id
+
+	
+# class Device( models.Model ):
+#   device_id = models.CharField(max_length=128, null=False, primary_key=True, default=func.deviceID128);
+#   login_token = models.CharField(max_length=128, null=False, default=func.deviceID128);
+#   permission_level = models.IntegerField(null=False);
+#   account = models.ForeignKey(Account, null=False, on_delete=models.CASCADE);
+
+# class LoginBridge( models.Model ):
+	
+	

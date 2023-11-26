@@ -1,0 +1,13 @@
+{%extends "base.html"%}
+{%block display%}
+
+{%if qr_img_base64%}
+로그인된 기기에서 QR CODE를 촬영하여 로그인.
+<img src="data:image/svg+xml;base64,{{ qr_img_base64 }}" alt="Login QR Code">
+<p>login_req_id : {{ login_req_id }}</p>
+<p>encoded_login_req_id : {{ encoded_login_req_id }}</p>
+{%else%}
+로그인이 허락되었습니다.
+{%endif%}
+
+{%endblock%}

@@ -1,0 +1,9 @@
+{%extends "base.html"%}
+{%block display%}
+<form method="post">
+  {%csrf_token%}
+  계정 아이디를 입력하여 로그인
+  <input type="text" name="account_id" placeholder="계정 아이디">
+  <button type="submit">로그인 요청받기</button>
+</form>
+{%endblock%}

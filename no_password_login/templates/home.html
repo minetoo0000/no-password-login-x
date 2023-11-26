@@ -1,0 +1,13 @@
+{%extends "base.html"%}
+{%block display%}
+{%if user.is_authenticated == False%}
+<a href="{%url 'regist'%}">회원가입</a>
+<a href="{%url 'login'%}">로그인</a>
+    
+{%elif user.is_authenticated%}
+<p>Device ID : {{ device_id }}</p>
+<p>Account ID : {{ account_id }}</p>
+<a href="{%url 'logout'%}">로그아웃 하기</a>
+{%endif%}
+
+{%endblock%}
