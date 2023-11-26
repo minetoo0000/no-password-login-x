@@ -1,6 +1,6 @@
 from django.http import HttpResponse;
 from django.shortcuts import render, redirect;
-from django.contrib.auth import login, authenticate;
+from django.contrib.auth import login, authenticate, logout;
 from django.contrib.auth.models import User;
 from system import models;
 from . import forms;
@@ -9,7 +9,8 @@ import base64;
 import qrcode;
 import qrcode.image.svg;
 
-DOMAIN = "localhost:8000";
+# DOMAIN = "192.168.174.79:8000";
+DOMAIN = "192.168.1.12:80";
 
 
 def prev_page():
@@ -17,7 +18,6 @@ def prev_page():
 
 
 # Create your views here.
-
 def regist_account( req )->None:
   if req.method=="GET":
     new_form = forms.RegistForm();
@@ -27,7 +27,10 @@ def regist_account( req )->None:
   elif req.method=="POST":
     get_form = forms.RegistForm(req.POST);
     if get_form.is_valid()==False:
-      return( redirect("home") );
+      data = {
+        "error":"이미 존재하는 계정 아이디이거나 입력하지 않았습니다.",
+      };
+      return( render(req, "error.html", data) );
 
     ## Account 생성 및 저장.
     new_acc = models.Account();
@@ -59,6 +62,17 @@ def regist_account( req )->None:
   else:
     return( redirect("home") );
 
+def logout_to_client_device_delete( req ):
+  if req.user.is_authenticated==False:
+    return( redirect("home") );
+
+  ## Client 및 Device 삭제.
+  get_dev = models.Device.objects.get(DP_AT_device_id=req.user.username);
+  get_dev.delete();
+  req.user.delete();
+
+  return( redirect("client_break") );
+
 
 def login_allow( req, login_req_id:str, login_account_id:str ):
   decode_login_req_id = base64.urlsafe_b64decode(login_req_id).decode("UTF-8");
@@ -75,27 +89,27 @@ def login_allow( req, login_req_id:str, login_account_id:str ):
       data = {
         "error":"만료된 요청입니다.",
       };
-      return( render(req, "error", data) );
+      return( render(req, "error.html", data) );
   
     ## 이미 허용된 브릿지인지 확인.
     if get_bridge.NA_allow_device!=None:
       data = {
         "error":"만료된 요청입니다.",
       };
-      return( render(req, "error", data) );
+      return( render(req, "error.html", data) );
 
     ## 동일한 사용자인지 확인.
     if req.user.is_authenticated==False:
       data = {
         "error":"요청이 유효하지 않습니다.",
       };
-      return( render(req, "error", data) );
+      return( render(req, "error.html", data) );
     
     if login_account_id!=get_dev.account.DP_account_id:
       data = {
         "error":"요청이 유효하지 않습니다.",
       };
-      return( render(req, "error", data) );
+      return( render(req, "error.html", data) );
 
     ## 동일 사용자임이 확인됨.
     ## 로그인 허용 업데이트.
@@ -117,17 +131,18 @@ def login_bridge( req, login_account_id:str, login_req_id:str ):
   
   if req.method=="GET":
     ## LoginBridge 에서 객체 찾기.
-    get_bridge = models.LoginBridge.objects.get(
-      DP_AT_login_req_id=decode_login_req_id,
-      DP_login_account_id=login_account_id,
-    );
-    if not get_bridge:
+    try:
+      get_bridge = models.LoginBridge.objects.get(
+        DP_AT_login_req_id=decode_login_req_id,
+        DP_login_account_id=login_account_id,
+      );
+    except:
       return( prev_page() );
 
     ## 로그인 허용 여부 검사:로그인 안됨.
     if get_bridge.NA_allow_device==None:
       img = qrcode.make(
-        f"http://{ DOMAIN }/account/login-allow/{ login_req_id }/{ login_account_id }/",
+        f"http://{ DOMAIN }/account/login-allow/{ login_req_id }/{ login_account_id }",
         image_factory=qrcode.image.svg.SvgImage,
         box_size=18,
       );
@@ -193,3 +208,25 @@ def login_account( req ):
     );
   else:
     return( redirect("login") );
+
+
+def account_control( req ):
+  if req.method=="GET":
+    ## device_id로 Account 객체 가져오기.
+    get_dev = models.Device.objects.get(DP_AT_device_id=req.user.username);
+    get_acc = get_dev.account;
+
+    ## Account와 연결된 다른 Device 목록 전부 가져오기.
+    _get_devs = models.Device.objects.filter(account=get_acc);
+
+    ## 현재 Device보다 권한이 낮은 Device만 가져오기.
+    get_devs = [];
+    for dev in _get_devs:
+      if dev.permission_level>get_dev.permission_level:
+        get_devs.append(dev);
+    
+    ## 렌더링.
+    data = {
+      "device_list":get_devs,
+    };
+    return( render(req, "account_control.html", data) );
