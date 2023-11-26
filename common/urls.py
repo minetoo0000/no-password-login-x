@@ -10,4 +10,5 @@ urlpatterns = [
   path("login-bridge/<str:login_req_id>/<str:login_account_id>", views.login_bridge, name="login_bridge"),
   path("login-allow/<str:login_req_id>/<str:login_account_id>", views.login_allow, name="login_allow"),
   path("control/", views.account_control, name="account_control"),
+  path("control/logout", views.account_control_logout, name="account_control_logout"),
 ];

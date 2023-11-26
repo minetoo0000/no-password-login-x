@@ -12,3 +12,6 @@ class RegistForm( forms.ModelForm ):
 class LoginForm( forms.Form ):
 	account_id = forms.CharField(max_length=64, required=True);
 	
+class AccountControlLogout( forms.Form ):
+	device_id = forms.CharField(max_length=128, required=True);
+	

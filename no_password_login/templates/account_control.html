@@ -2,7 +2,12 @@
 {%block display%}
 <h3>관리할 수 있는 다른 기기는 현재 기기가 로그인을 허락한 기기, 또는 현재 계정의 권한보다 낮은 권한의 계정만 여기서 관리할 수 있습니다.</h3>
 {%for device in device_list%}
-<p>Device ID : {{ device.DP_AT_device_id }}</p>
-<p>Permission Level : {{ device.permission_level }}</p>
+<form method="post" action="{%url 'account_control_logout'%}">
+  {%csrf_token%}
+  <input type="hidden" name="device_id" value="{{ device.DP_AT_device_id }}">
+  <p>Device ID : {{ device.DP_AT_device_id }}</p>
+  <p>Permission Level : {{ device.permission_level }}</p>
+  <button type="submit">이 기기 강제 로그아웃 하기</button>
+</form>
 {%endfor%}
 {%endblock%}

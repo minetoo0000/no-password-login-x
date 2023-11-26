@@ -78,12 +78,18 @@ def login_allow( req, login_req_id:str, login_account_id:str ):
   decode_login_req_id = base64.urlsafe_b64decode(login_req_id).decode("UTF-8");
 
   if req.method=="GET":
-    get_bridge = models.LoginBridge.objects.get(
-      DP_AT_login_req_id=decode_login_req_id,
-      DP_login_account_id=login_account_id,
-    );
-    get_dev = models.Device.objects.get(DP_AT_device_id=req.user.username);
-
+    try:
+      get_bridge = models.LoginBridge.objects.get(
+        DP_AT_login_req_id=decode_login_req_id,
+        DP_login_account_id=login_account_id,
+      );
+      get_dev = models.Device.objects.get(DP_AT_device_id=req.user.username);
+    except:
+      data = {
+        "error":"잘못된 요청입니다.",
+      };
+      return( render(req, "error.html", data) );
+      
     ## 존재하는 요청인지 검사.
     if not get_bridge or not get_dev:
       data = {
@@ -157,6 +163,16 @@ def login_bridge( req, login_account_id:str, login_req_id:str ):
 
     ## 로그인 허용 됨.
     else:
+      ## 로그아웃 된 클라이언트만 로그인 가능하게 하기.
+      if req.user.is_authenticated==True:
+        data = {
+          "error":"이미 로그인되어있습니다. 로그인을 시도하지 않습니다.",
+        };
+        return( render(req, "error.html", data) );
+      
+      ## LoginBridge 삭제하기.
+      get_bridge.delete();
+      
       ## 로그인을 허용시킨 기기의 하위 권한으로 Device 생성 및 저장.
       new_dev = models.Device();
       new_dev.permission_level = get_bridge.NA_allow_device.permission_level+1;
@@ -211,6 +227,9 @@ def login_account( req ):
 
 
 def account_control( req ):
+  if req.user.is_authenticated==False:
+    return( redirect("home") );
+  
   if req.method=="GET":
     ## device_id로 Account 객체 가져오기.
     get_dev = models.Device.objects.get(DP_AT_device_id=req.user.username);
@@ -230,3 +249,46 @@ def account_control( req ):
       "device_list":get_devs,
     };
     return( render(req, "account_control.html", data) );
+
+def account_control_logout( req ):
+  if req.method=="POST":
+    get_form = forms.AccountControlLogout(req.POST);
+    if get_form.is_valid()==False:
+      data = {
+        "error":"잘못된 요청입니다.",
+      };
+      return( render(req, "error.html", data) );
+    
+    ## 사용자 인증하기.
+    if req.user.is_authenticated==False:
+      data = {
+        "error":"잘못된 요청입니다.",
+      };
+      return( render(req, "error.html", data) );
+    
+    ## 요청온 device_id로 account 가져오기.
+    try:
+      form_device_id = get_form.cleaned_data.get("device_id");
+      form_get_dev = models.Device.objects.get(DP_AT_device_id=form_device_id);
+      form_get_acc = form_get_dev.account;
+      client_get_dev = models.Device.objects.get(DP_AT_device_id=req.user.username);
+      client_get_acc = client_get_dev.account;
+    except:
+      data = {
+        "error":"잘못된 요청입니다.",
+      };
+      return( render(req, "error.html", data) );
+
+      
+    ## 요청온 device_id의 account가 Client의 account가 동일한지 확인.
+    if form_get_acc!=client_get_acc:
+      data = {
+        "error":"잘못된 요청입니다.",
+      };
+      return( render(req, "error.html", data) );
+
+    ## 요청받은 기기 정적(간접) 로그아웃 시키기.
+    form_get_dev.delete();
+    
+    ## 계정 관리 페이지로 리다이렉트.
+    return( redirect("account_control") );
